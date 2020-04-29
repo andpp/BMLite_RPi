@@ -173,4 +173,7 @@ fpc_bep_result_t bep_sensor_wait_for_finger(fpc_com_chain_t *chain, uint16_t tim
  */
 fpc_bep_result_t bep_sensor_wait_finger_not_present(fpc_com_chain_t *chain, uint16_t timeout);
 
+fpc_bep_result_t bep_template_get(fpc_com_chain_t *chain, uint16_t template_id, uint8_t *data, uint32_t size, uint16_t *tmplsize);
+fpc_bep_result_t bep_template_put(fpc_com_chain_t *chain, uint16_t template_id, uint8_t *data, uint16_t size);
+
 #endif /* BEP_HOST_IF_H */

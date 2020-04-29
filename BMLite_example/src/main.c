@@ -43,7 +43,7 @@ static void help(void)
 
 int main (int argc, char **argv)
 {
-     char *port = NULL;
+    char *port = NULL;
     int baudrate = 921600;
     int timeout = 5;
     int index;
@@ -139,6 +139,8 @@ int main (int argc, char **argv)
         printf("c: Remove all templates\n");
         printf("d: Save template\n");
         printf("e: Remove template\n");
+        printf("t: Get template\n");
+        printf("T: Put template\n");
         printf("f: Capture image\n");
         printf("g: Image upload\n");
         printf("h: Get version\n");
@@ -168,6 +170,44 @@ int main (int argc, char **argv)
                 template_id = atoi(cmd);
                 res = bep_save_template(&hcp_chain, template_id);
                 break;
+            case 't': {
+                printf("Template id: ");
+                fgets(cmd, sizeof(cmd), stdin);
+                template_id = atoi(cmd);
+                uint8_t *buf = malloc(10240);
+                memset(buf,0,10240);
+                uint16_t tmpl_size = 0;
+                res = bep_template_get(&hcp_chain, template_id, buf, 10240, &tmpl_size);
+                printf("Template size: %d\n", tmpl_size);
+                if (res == FPC_BEP_RESULT_OK) {
+                    FILE *f = fopen("tmpl.raw", "wb");
+                    if (f) {
+                        fwrite(buf, tmpl_size, 1, f);
+                        fclose(f);
+                        printf("Template saved as tmpl.raw\n");
+                    }
+                }
+                free(buf);
+                break;
+            }
+            case 'T': {
+                printf("Template id: ");
+                fgets(cmd, sizeof(cmd), stdin);
+                template_id = atoi(cmd);
+                uint8_t *buf = malloc(10240);
+                memset(buf,0,10240);
+                uint16_t tmpl_size = 0;
+                FILE *f = fopen("tmpl.raw", "rb");
+                if (f) {
+                    printf("Read template from tmpl.raw\n");
+                    tmpl_size = fread(buf, 1, 10240, f);
+                    printf("Template size: %d\n", tmpl_size);
+                    fclose(f);
+                }
+                res = bep_template_put(&hcp_chain, template_id, buf, tmpl_size);
+                free(buf);
+                break;
+                }
             case 'e':
                 printf("Template id: ");
                 fgets(cmd, sizeof(cmd), stdin);

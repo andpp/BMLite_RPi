@@ -130,9 +130,9 @@ static fpc_bep_result_t send_command(fpc_com_chain_t *chain, fpc_hcp_cmd_t comma
  * @param arg_data2_length second argument
  * @return ::fpc_bep_result_t
  */
-static fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
-        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
-        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length)
+static fpc_bep_result_t receive_result_args2_sizes(fpc_com_chain_t *chain,
+        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length, uint16_t *arg1_size,
+        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length, uint16_t *arg2_size)
 {
     fpc_hcp_packet_t response;
     fpc_hcp_arg_data_t args_rx[10] = {{ 0 }};
@@ -168,6 +168,7 @@ static fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
     if (arg_key1 != ARG_NONE) {
         arg_data = fpc_hcp_arg_get(&response, arg_key1);
         if (arg_data && arg_data->size <= arg_data1_length) {
+            *arg1_size = arg_data->size;
             memcpy(arg_data1, arg_data->data, arg_data->size);
         } else {
             log_error("%s %d argument missing\n", __func__, arg_key1);
@@ -180,6 +181,7 @@ static fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
     if (arg_key2 != ARG_NONE) {
         arg_data = fpc_hcp_arg_get(&response, arg_key2);
         if (arg_data && arg_data->size <= arg_data2_length) {
+            *arg2_size = arg_data->size;
             memcpy(arg_data2, arg_data->data, arg_data->size);
         } else {
             /* Not an error since the second argument is optional */
@@ -191,6 +193,16 @@ exit:
     fpc_hcp_free(chain, &response);
 
     return bep_result;
+}
+
+static fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
+        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
+        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length)
+{
+    uint16_t arg_size1;
+    uint16_t arg_size2;
+    return receive_result_args2_sizes(chain, arg_key1, arg_data1, arg_data1_length, &arg_size1,
+                                             arg_key2, arg_data2, arg_data2_length, &arg_size2);
 }
 
 static fpc_bep_result_t receive_result_no_args(fpc_com_chain_t *chain)
@@ -531,3 +543,50 @@ fpc_bep_result_t bep_sensor_wait_finger_not_present(fpc_com_chain_t *chain, uint
     /* Wait for finger to be lifted from sensor */
     return receive_result_no_args(chain);
 }
+
+fpc_bep_result_t bep_template_get(fpc_com_chain_t *chain, uint16_t template_id, uint8_t *data, uint32_t size, uint16_t *tmplsize)
+{
+    fpc_bep_result_t bep_result;
+    uint16_t tmpl_id = template_id;
+
+
+    bep_result = send_command_args2(chain, CMD_STORAGE_TEMPLATE, ARG_UPLOAD, 0, 0, ARG_ID, &tmpl_id,
+        sizeof(tmpl_id));
+    if (bep_result != FPC_BEP_RESULT_OK) {
+        log_error("%s:%u, ERROR\n", __func__, __LINE__);
+        return bep_result;
+    }
+
+    bep_result = receive_result_no_args(chain);
+    if(bep_result != FPC_BEP_RESULT_OK) {
+        log_error("%s:%u, ERROR\n", __func__, __LINE__);
+        return bep_result;
+    }
+
+    bep_result = send_command(chain, CMD_TEMPLATE, ARG_UPLOAD, NULL, 0);
+    if (bep_result != FPC_BEP_RESULT_OK) {
+        log_error("Template download failed\n");
+        return bep_result;
+    }
+
+    return receive_result_args2_sizes(chain, ARG_DATA, data, size, tmplsize, ARG_NONE, 0, 0, 0);
+}
+
+fpc_bep_result_t bep_template_put(fpc_com_chain_t *chain, uint16_t template_id, uint8_t *data, uint16_t size)
+{
+    fpc_bep_result_t bep_result;
+
+    bep_result = send_command_args2(chain, CMD_TEMPLATE, ARG_DOWNLOAD, 0, 0, ARG_DATA, data, size);
+    if (bep_result != FPC_BEP_RESULT_OK) {
+        log_error("%s:%u, ERROR\n", __func__, __LINE__);
+        return bep_result;
+    }
+    bep_result = receive_result_no_args(chain);
+    if(bep_result != FPC_BEP_RESULT_OK) {
+        log_error("%s:%u, ERROR\n", __func__, __LINE__);
+        return bep_result;
+    }
+
+    return bep_save_template(chain, template_id);
+}
+ 
