@@ -41,10 +41,10 @@ static uint8_t hcp_data_buffer[DATA_BUFFER_SIZE];
 static HCP_comm_t hcp_chain = {
     .read = platform_spi_receive,
     .write = platform_spi_send,
-    .data_buffer = hcp_data_buffer,
+    .pkt_buffer = hcp_data_buffer,
     .txrx_buffer = hcp_txrx_buffer,
-    .data_size = 0,
-    .data_size_max = sizeof(hcp_data_buffer),
+    .pkt_size = 0,
+    .pkt_size_max = sizeof(hcp_data_buffer),
     .phy_rx_timeout = 2000,
 };
 
