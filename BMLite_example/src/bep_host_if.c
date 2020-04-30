@@ -49,7 +49,16 @@
 static const uint8_t MAX_CAPTURE_ATTEMPTS = 15U;
 static const uint16_t CAPTURE_TIMEOUT = 3000;
 
+fpc_bep_result_t send_command_args2(fpc_com_chain_t *chain, fpc_hcp_cmd_t command_id,
+        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
+        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length);
 
+fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
+        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
+        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length);
+
+
+#if 0
 /**
  * @brief Helper function for sending HCP commands
  *
@@ -106,6 +115,8 @@ exit:
     return bep_result;
 }
 
+#endif
+
 static fpc_bep_result_t send_command_no_args(fpc_com_chain_t *chain, fpc_hcp_cmd_t command_id)
 {
     return send_command_args2(chain, command_id, ARG_NONE, NULL, 0, ARG_NONE, NULL, 0);
@@ -118,6 +129,7 @@ static fpc_bep_result_t send_command(fpc_com_chain_t *chain, fpc_hcp_cmd_t comma
         ARG_NONE, NULL, 0);
 }
 
+#if 0
 /**
  * @brief Helper function for receiving HCP commands
 
@@ -192,6 +204,7 @@ exit:
 
     return bep_result;
 }
+#endif
 
 static fpc_bep_result_t receive_result_no_args(fpc_com_chain_t *chain)
 {
