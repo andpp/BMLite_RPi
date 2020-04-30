@@ -31,7 +31,6 @@
 #include <termios.h>
 #include <sys/time.h>
 
-#include "fpc_com_result.h"
 #include "platform.h"
 
 #include <linux/spi/spidev.h>
@@ -144,7 +143,7 @@ bool platform_spi_init(uint32_t speed_hz)
     return true;
 }
 
-static fpc_com_result_t platform_spi_write_read(const uint8_t *write, uint8_t *read, size_t size,
+static fpc_bep_result_t platform_spi_write_read(const uint8_t *write, uint8_t *read, size_t size,
     bool leave_cs_asserted)
 {
     /*
@@ -174,13 +173,13 @@ static fpc_com_result_t platform_spi_write_read(const uint8_t *write, uint8_t *r
      * from the the number of bytes written an error has occured.
      */
     if (status == size) {
-        return FPC_COM_RESULT_OK;
+        return FPC_BEP_RESULT_OK;
     }
-    return FPC_COM_RESULT_IO_ERROR;
+    return FPC_BEP_RESULT_IO_ERROR;
 
 }
 
-fpc_com_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t timeout,
         void *session)
 {
     uint8_t buff[size];
@@ -188,17 +187,18 @@ fpc_com_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t 
     return platform_spi_write_read(data, buff, size, false);
 }
 
-fpc_com_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t timeout,
         void *session)
 {
 	volatile uint64_t start_time = platform_get_time();
 	volatile uint64_t curr_time = start_time;
+    // Wait for BM_Lite Ready for timeout or indefinitily if timeout is 0
     while (!fpc_sensor_spi_read_irq() &&
-    		(curr_time = platform_get_time()) - start_time < timeout) {
+    		(!timeout || (curr_time = platform_get_time()) - start_time < timeout)) {
         //usleep(1);
     }
-    if(curr_time - start_time >= timeout) {
-        return FPC_COM_RESULT_TIMEOUT;
+    if(timeout && curr_time - start_time >= timeout) {
+        return FPC_BEP_RESULT_TIMEOUT;
     }
 
     uint8_t buff[size];

@@ -25,6 +25,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "fpc_bep_types.h"
+
+typedef enum {
+   COM_INTERFACE = 0,
+   SPI_INTERFACE
+} interface_t;
+
+
 /**
  * @brief Initializes COM Physical layer.
  *
@@ -41,9 +49,9 @@ bool platform_com_init(char *port, int baudrate, int timeout);
  * @param[in]       data        Data buffer to send.
  * @param[in]       timeout     Timeout in ms. Use 0 for infinity.
  *
- * @return ::fpc_com_result_t
+ * @return ::fpc_bep_result_t
  */
-fpc_com_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
         void *session);
 
 /**
@@ -53,9 +61,9 @@ fpc_com_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t 
  * @param[in, out]  data        Data buffer to fill.
  * @param[in]       timeout     Timeout in ms. Use 0 for infinity.
  *
- * @return ::fpc_com_result_t
+ * @return ::fpc_bep_result_t
  */
-fpc_com_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
         void *session);
 
 /**
@@ -72,9 +80,9 @@ bool platform_spi_init(uint32_t speed_hz);
  * @param[in]       data        Data buffer to send.
  * @param[in]       timeout     Timeout in ms. Use 0 for infinity.
  *
- * @return ::fpc_com_result_t
+ * @return ::fpc_bep_result_t
  */
-fpc_com_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t timeout,
         void *session);
 
 /**
@@ -84,9 +92,9 @@ fpc_com_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t 
  * @param[in, out]  data        Data buffer to fill.
  * @param[in]       timeout     Timeout in ms. Use 0 for infinity.
  *
- * @return ::fpc_com_result_t
+ * @return ::fpc_bep_result_t
  */
-fpc_com_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t timeout,
         void *session);
 
 /**

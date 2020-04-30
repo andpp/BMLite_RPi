@@ -29,7 +29,6 @@
 #include <termios.h>
 #include <sys/time.h>
 
-#include "fpc_com_result.h"
 #include "platform.h"
 
 static int fd = -1;
@@ -85,30 +84,30 @@ bool platform_com_init(char *port, int baudrate, int timeout)
     return true;
 }
 
-fpc_com_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
         void *session)
 {
-    fpc_com_result_t res = FPC_COM_RESULT_OK;
+    fpc_bep_result_t res = FPC_BEP_RESULT_OK;
     int n;
 
     if (fd < 0) {
         fprintf(stderr, "error invalid file descriptor");
-        return FPC_COM_RESULT_INVALID_ARGUMENT;
+        return FPC_BEP_RESULT_INVALID_ARGUMENT;
     }
 
     n = write(fd, data, size);
 
     if (n != size) {
-        res = FPC_COM_RESULT_IO_ERROR;
+        res = FPC_BEP_RESULT_IO_ERROR;
     }
 
     return res;
 }
 
-fpc_com_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
+fpc_bep_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
         void *session)
 {
-    fpc_com_result_t res = FPC_COM_RESULT_OK;
+    fpc_bep_result_t res = FPC_BEP_RESULT_OK;
     int n_read = 0;
     int n = 0;
     fd_set rfds;
@@ -117,7 +116,7 @@ fpc_com_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t tim
 
     if (fd < 0) {
         fprintf(stderr, "error invalid file descriptor");
-        return FPC_COM_RESULT_INVALID_ARGUMENT;
+        return FPC_BEP_RESULT_INVALID_ARGUMENT;
     }
 
     FD_ZERO(&rfds);

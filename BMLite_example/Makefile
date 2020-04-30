@@ -53,8 +53,7 @@ PATH_INC += inc
 
 C_INC = $(addprefix -I,$(PATH_INC))
 
-# Include HCP
-include $(HCP_PATH)/hcp.mk
+# Include HAL driver
 include $(RPIHAL_PATH)/raspberry.mk
 
 # Object files and search paths

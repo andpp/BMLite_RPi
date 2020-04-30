@@ -23,14 +23,10 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "fpc_bep_types.h"
-#include "fpc_hcp_common.h"
-#include "fpc_com_result.h"
-#include "fpc_hcp.h"
 #include "platform.h"
-#include "com_common.h"
-
+#include "fpc_hcp_common.h"
 #include "bep_host_if.h"
+#include "hcp_tiny.h"
 
 /** Returns the number of elements in an array. */
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
@@ -49,15 +45,6 @@
 static const uint8_t MAX_CAPTURE_ATTEMPTS = 15U;
 static const uint16_t CAPTURE_TIMEOUT = 3000;
 
-fpc_bep_result_t send_command_args2(fpc_com_chain_t *chain, fpc_hcp_cmd_t command_id,
-        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
-        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length);
-
-fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
-        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
-        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length);
-
-
 #if 0
 /**
  * @brief Helper function for sending HCP commands
@@ -72,13 +59,13 @@ fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
  * @param arg_data2_length second data length of argument data
  * @return ::fpc_bep_result_t
  */
-static fpc_bep_result_t send_command_args2(fpc_com_chain_t *chain, fpc_hcp_cmd_t command_id,
+static fpc_bep_result_t send_command_args2(HCP_comm_t *chain, fpc_hcp_cmd_t command_id,
         fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
         fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length)
 {
     fpc_hcp_packet_t command;
     fpc_bep_result_t bep_result;
-    fpc_com_result_t com_result;
+    fpc_bep_result_t com_result;
     fpc_hcp_arg_data_t args_tx[10] = {{ 0 }};
 
     memset(&command, 0x0, sizeof(command));
@@ -117,12 +104,12 @@ exit:
 
 #endif
 
-static fpc_bep_result_t send_command_no_args(fpc_com_chain_t *chain, fpc_hcp_cmd_t command_id)
+static fpc_bep_result_t send_command_no_args(HCP_comm_t *chain, fpc_hcp_cmd_t command_id)
 {
     return send_command_args2(chain, command_id, ARG_NONE, NULL, 0, ARG_NONE, NULL, 0);
 }
 
-static fpc_bep_result_t send_command(fpc_com_chain_t *chain, fpc_hcp_cmd_t command_id,
+static fpc_bep_result_t send_command(HCP_comm_t *chain, fpc_hcp_cmd_t command_id,
         fpc_hcp_arg_t arg_key, void *arg_data, uint16_t arg_data_length)
 {
     return send_command_args2(chain, command_id, arg_key, arg_data, arg_data_length,
@@ -142,7 +129,7 @@ static fpc_bep_result_t send_command(fpc_com_chain_t *chain, fpc_hcp_cmd_t comma
  * @param arg_data2_length second argument
  * @return ::fpc_bep_result_t
  */
-static fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
+static fpc_bep_result_t receive_result_args2(HCP_comm_t *chain,
         fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
         fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length)
 {
@@ -156,7 +143,7 @@ static fpc_bep_result_t receive_result_args2(fpc_com_chain_t *chain,
     response.num_args = ARRAY_SIZE(args_rx);
 
     do {
-        fpc_com_result_t com_result = fpc_hcp_receive(&response, chain);
+        fpc_bep_result_t com_result = fpc_hcp_receive(&response, chain);
         bep_result = com_to_bep_result(com_result);
     } while (bep_result == FPC_BEP_RESULT_TIMEOUT);
 
@@ -206,19 +193,19 @@ exit:
 }
 #endif
 
-static fpc_bep_result_t receive_result_no_args(fpc_com_chain_t *chain)
+static fpc_bep_result_t receive_result_no_args(HCP_comm_t *chain)
 {
     return receive_result_args2(chain, ARG_NONE, NULL, 0, ARG_NONE, NULL, 0);
 }
 
-static fpc_bep_result_t receive_result_args1(fpc_com_chain_t *chain,
+static fpc_bep_result_t receive_result_args1(HCP_comm_t *chain,
         fpc_hcp_arg_t arg_key, void *arg_data, uint16_t arg_data_length)
 {
     return receive_result_args2(chain, arg_key, arg_data, arg_data_length, ARG_NONE, NULL, 0);
 }
 
 
-fpc_bep_result_t bep_capture(fpc_com_chain_t *chain, uint16_t timeout)
+fpc_bep_result_t bep_capture(HCP_comm_t *chain, uint16_t timeout)
 {
     fpc_bep_result_t bep_result;
 
@@ -234,7 +221,7 @@ fpc_bep_result_t bep_capture(fpc_com_chain_t *chain, uint16_t timeout)
    return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_enroll_finger(fpc_com_chain_t *chain)
+fpc_bep_result_t bep_enroll_finger(HCP_comm_t *chain)
 {
     uint32_t samples_remaining = 0;
     fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
@@ -315,13 +302,16 @@ exit:
     return (!enroll_done) ? FPC_BEP_RESULT_GENERAL_ERROR : bep_result;
 }
 
-fpc_bep_result_t bep_identify_finger(fpc_com_chain_t *chain, uint16_t *template_id, bool *match)
+fpc_bep_result_t bep_identify_finger(HCP_comm_t *chain, uint32_t timeout, uint16_t *template_id, bool *match)
 {
     fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
 
     *match = false;
 
-    bep_result = bep_capture(chain, CAPTURE_TIMEOUT);
+    uint32_t prev_timeout = chain->phy_rx_timeout;
+    chain->phy_rx_timeout = timeout;
+    bep_result = bep_capture(chain, timeout);
+    chain->phy_rx_timeout = prev_timeout;
     if (bep_result != FPC_BEP_RESULT_OK) {
         log_error("Capture failed result=%d\n", bep_result);
         return bep_result;
@@ -351,7 +341,7 @@ fpc_bep_result_t bep_identify_finger(fpc_com_chain_t *chain, uint16_t *template_
     return bep_result;
 }
 
-fpc_bep_result_t bep_save_template(fpc_com_chain_t *chain, uint16_t template_id)
+fpc_bep_result_t bep_save_template(HCP_comm_t *chain, uint16_t template_id)
 {
     fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
 
@@ -365,7 +355,7 @@ fpc_bep_result_t bep_save_template(fpc_com_chain_t *chain, uint16_t template_id)
     return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_delete_template(fpc_com_chain_t *chain, uint16_t template_id)
+fpc_bep_result_t bep_delete_template(HCP_comm_t *chain, uint16_t template_id)
 {
     fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
 
@@ -384,7 +374,7 @@ fpc_bep_result_t bep_delete_template(fpc_com_chain_t *chain, uint16_t template_i
     return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_get_template_count(fpc_com_chain_t *chain, uint32_t *template_count)
+fpc_bep_result_t bep_get_template_count(HCP_comm_t *chain, uint32_t *template_count)
 {
     fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
 
@@ -403,7 +393,7 @@ fpc_bep_result_t bep_get_template_count(fpc_com_chain_t *chain, uint32_t *templa
     return bep_result;
 }
 
-fpc_bep_result_t bep_get_template_ids(fpc_com_chain_t *chain, uint16_t *template_ids,
+fpc_bep_result_t bep_get_template_ids(HCP_comm_t *chain, uint16_t *template_ids,
     uint32_t nof_templates)
 {
     fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
@@ -424,7 +414,7 @@ fpc_bep_result_t bep_get_template_ids(fpc_com_chain_t *chain, uint16_t *template
     return bep_result;
 }
 
-fpc_bep_result_t bep_image_extract(fpc_com_chain_t *chain)
+fpc_bep_result_t bep_image_extract(HCP_comm_t *chain)
 {
     fpc_bep_result_t bep_result;
 
@@ -437,7 +427,7 @@ fpc_bep_result_t bep_image_extract(fpc_com_chain_t *chain)
     return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_image_get_size(fpc_com_chain_t *chain, uint32_t *size)
+fpc_bep_result_t bep_image_get_size(HCP_comm_t *chain, uint32_t *size)
 {
     fpc_bep_result_t bep_result;
 
@@ -452,7 +442,7 @@ fpc_bep_result_t bep_image_get_size(fpc_com_chain_t *chain, uint32_t *size)
     return receive_result_args1(chain, ARG_SIZE, size, sizeof(size));
 }
 
-fpc_bep_result_t bep_image_get(fpc_com_chain_t *chain, uint8_t *data, uint32_t size)
+fpc_bep_result_t bep_image_get(HCP_comm_t *chain, uint8_t *data, uint32_t size)
 {
     fpc_bep_result_t bep_result;
 
@@ -465,7 +455,7 @@ fpc_bep_result_t bep_image_get(fpc_com_chain_t *chain, uint8_t *data, uint32_t s
     return receive_result_args1(chain, ARG_DATA, data, size);
 }
 
-fpc_bep_result_t bep_version(fpc_com_chain_t *chain, char *version, int len)
+fpc_bep_result_t bep_version(HCP_comm_t *chain, char *version, int len)
 {
     fpc_bep_result_t bep_result;
 
@@ -478,7 +468,7 @@ fpc_bep_result_t bep_version(fpc_com_chain_t *chain, char *version, int len)
     return receive_result_args1(chain, ARG_VERSION, version, len);
 }
 
-fpc_bep_result_t bep_reset(fpc_com_chain_t *chain)
+fpc_bep_result_t bep_reset(HCP_comm_t *chain)
 {
     fpc_bep_result_t bep_result;
 
@@ -491,7 +481,7 @@ fpc_bep_result_t bep_reset(fpc_com_chain_t *chain)
     return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_sensor_calibrate(fpc_com_chain_t *chain)
+fpc_bep_result_t bep_sensor_calibrate(HCP_comm_t *chain)
 {
     fpc_bep_result_t bep_result;
 
@@ -504,7 +494,7 @@ fpc_bep_result_t bep_sensor_calibrate(fpc_com_chain_t *chain)
     return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_sensor_calibrate_remove(fpc_com_chain_t *chain)
+fpc_bep_result_t bep_sensor_calibrate_remove(HCP_comm_t *chain)
 {
     fpc_bep_result_t bep_result;
 
@@ -517,7 +507,7 @@ fpc_bep_result_t bep_sensor_calibrate_remove(fpc_com_chain_t *chain)
     return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_sensor_wait_for_finger(fpc_com_chain_t *chain, uint16_t timeout)
+fpc_bep_result_t bep_sensor_wait_for_finger(HCP_comm_t *chain, uint16_t timeout)
 {
     fpc_bep_result_t bep_result;
 
@@ -531,7 +521,7 @@ fpc_bep_result_t bep_sensor_wait_for_finger(fpc_com_chain_t *chain, uint16_t tim
     return receive_result_no_args(chain);
 }
 
-fpc_bep_result_t bep_sensor_wait_finger_not_present(fpc_com_chain_t *chain, uint16_t timeout)
+fpc_bep_result_t bep_sensor_wait_finger_not_present(HCP_comm_t *chain, uint16_t timeout)
 {
     fpc_bep_result_t bep_result;
 

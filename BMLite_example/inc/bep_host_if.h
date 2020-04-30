@@ -25,7 +25,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "fpc_bep_types.h"
-#include "fpc_com_chain.h"
+// #include "fpc_com_chain.h"
+
+#include "hcp_tiny.h"
 
 #define REMOVE_ID_ALL_TEMPLATES 0U
 
@@ -36,7 +38,7 @@
  * @param[in] timeout Timeout in ms
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_capture(fpc_com_chain_t *chain, uint16_t timeout);
+fpc_bep_result_t bep_capture(HCP_comm_t *chain, uint16_t timeout);
 
 /**
  * @brief Sends HCP commands for enrolling a finger in Bio MCU
@@ -44,7 +46,7 @@ fpc_bep_result_t bep_capture(fpc_com_chain_t *chain, uint16_t timeout);
  * @param[in] chain HCP com chain
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_enroll_finger(fpc_com_chain_t *chain);
+fpc_bep_result_t bep_enroll_finger(HCP_comm_t *chain);
 
 /**
  * @brief Sends HCP commands for identifying a finger in Bio MCU
@@ -54,7 +56,7 @@ fpc_bep_result_t bep_enroll_finger(fpc_com_chain_t *chain);
  * @param[out] match True if match
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_identify_finger(fpc_com_chain_t *chain, uint16_t *template_id, bool *match);
+fpc_bep_result_t bep_identify_finger(HCP_comm_t *chain, uint32_t timeout, uint16_t *template_id, bool *match);
 
 
 /**
@@ -64,7 +66,7 @@ fpc_bep_result_t bep_identify_finger(fpc_com_chain_t *chain, uint16_t *template_
  * @param[in] template_id Template id to save
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_save_template(fpc_com_chain_t *chain, uint16_t template_id);
+fpc_bep_result_t bep_save_template(HCP_comm_t *chain, uint16_t template_id);
 
 /**
  * @brief Remove template(s) stored
@@ -73,7 +75,7 @@ fpc_bep_result_t bep_save_template(fpc_com_chain_t *chain, uint16_t template_id)
  * @param[in] template_id template id to remove, if =REMOVE_ID_ALL_TEMPLATES removes all templates
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_delete_template(fpc_com_chain_t *chain, uint16_t template_id);
+fpc_bep_result_t bep_delete_template(HCP_comm_t *chain, uint16_t template_id);
 
 /**
  * @brief Gets all template ids from Bio MCU
@@ -84,7 +86,7 @@ fpc_bep_result_t bep_delete_template(fpc_com_chain_t *chain, uint16_t template_i
  * @param[in] nof_templates This should be acquired using bio_get_template_count
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_get_template_ids(fpc_com_chain_t *chain, uint16_t *template_ids,
+fpc_bep_result_t bep_get_template_ids(HCP_comm_t *chain, uint16_t *template_ids,
         uint32_t nof_templates);
 
 /**
@@ -94,7 +96,7 @@ fpc_bep_result_t bep_get_template_ids(fpc_com_chain_t *chain, uint16_t *template
  * @param[out] template_count
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_get_template_count(fpc_com_chain_t *chain, uint32_t *template_count);
+fpc_bep_result_t bep_get_template_count(HCP_comm_t *chain, uint32_t *template_count);
 
 
 /**
@@ -103,7 +105,7 @@ fpc_bep_result_t bep_get_template_count(fpc_com_chain_t *chain, uint32_t *templa
  * @param[in] chain HCP com chain
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_image_extract(fpc_com_chain_t *chain);
+fpc_bep_result_t bep_image_extract(HCP_comm_t *chain);
 
 /**
  * @brief Sends HCP commands for getting the image size of a previously capture image in Bio MCU
@@ -111,7 +113,7 @@ fpc_bep_result_t bep_image_extract(fpc_com_chain_t *chain);
  * @param[in] chain HCP com chain
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_image_get_size(fpc_com_chain_t *chain, uint32_t *size);
+fpc_bep_result_t bep_image_get_size(HCP_comm_t *chain, uint32_t *size);
 
 /**
  * @brief Sends HCP commands for getting the image data of a previously capture image in Bio MCU
@@ -119,7 +121,7 @@ fpc_bep_result_t bep_image_get_size(fpc_com_chain_t *chain, uint32_t *size);
  * @param[in] chain HCP com chain
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_image_get(fpc_com_chain_t *chain, uint8_t *data, uint32_t size);
+fpc_bep_result_t bep_image_get(HCP_comm_t *chain, uint8_t *data, uint32_t size);
 
 /**
  * @brief Sends HCP commands for fetching the version of the Bio MCU FW
@@ -129,7 +131,7 @@ fpc_bep_result_t bep_image_get(fpc_com_chain_t *chain, uint8_t *data, uint32_t s
  * @param[out] len Length of version string buffer
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_version(fpc_com_chain_t *chain, char *version, int len);
+fpc_bep_result_t bep_version(HCP_comm_t *chain, char *version, int len);
 
 /**
  * @brief Sends HCP commands for resetting the Bio MCU
@@ -137,7 +139,7 @@ fpc_bep_result_t bep_version(fpc_com_chain_t *chain, char *version, int len);
  * @param[in] chain HCP com chain
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_reset(fpc_com_chain_t *chain);
+fpc_bep_result_t bep_reset(HCP_comm_t *chain);
 
 /**
  * @brief Sends HCP commands for calibrating the sensor in the Bio MCU
@@ -145,7 +147,7 @@ fpc_bep_result_t bep_reset(fpc_com_chain_t *chain);
  * @param[in] chain HCP com chain
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_sensor_calibrate(fpc_com_chain_t *chain);
+fpc_bep_result_t bep_sensor_calibrate(HCP_comm_t *chain);
 
 /**
  * @brief Sends HCP commands for removing the sensor calibration in the Bio MCU
@@ -153,7 +155,7 @@ fpc_bep_result_t bep_sensor_calibrate(fpc_com_chain_t *chain);
  * @param[in] chain HCP com chain
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_sensor_calibrate_remove(fpc_com_chain_t *chain);
+fpc_bep_result_t bep_sensor_calibrate_remove(HCP_comm_t *chain);
 
 /**
  * @brief Sends HCP commands for setting the sensor in sleep and waiting for finger in the Bio MCU
@@ -162,7 +164,7 @@ fpc_bep_result_t bep_sensor_calibrate_remove(fpc_com_chain_t *chain);
  * @param[in] timeout Timeout in ms
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_sensor_wait_for_finger(fpc_com_chain_t *chain, uint16_t timeout);
+fpc_bep_result_t bep_sensor_wait_for_finger(HCP_comm_t *chain, uint16_t timeout);
 
 /**
  * @brief Sends HCP commands that returns when finger is not on the sensor in the Bio MCU
@@ -171,6 +173,6 @@ fpc_bep_result_t bep_sensor_wait_for_finger(fpc_com_chain_t *chain, uint16_t tim
  * @param[in] timeout Timeout in ms
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t bep_sensor_wait_finger_not_present(fpc_com_chain_t *chain, uint16_t timeout);
+fpc_bep_result_t bep_sensor_wait_finger_not_present(HCP_comm_t *chain, uint16_t timeout);
 
 #endif /* BEP_HOST_IF_H */

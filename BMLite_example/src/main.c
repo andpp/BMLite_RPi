@@ -32,8 +32,22 @@
 #include <string.h>
 
 #include "bep_host_if.h"
-#include "com_common.h"
 #include "platform.h"
+
+#define DATA_BUFFER_SIZE 102400
+static uint8_t hcp_txrx_buffer[MTU];
+static uint8_t hcp_data_buffer[DATA_BUFFER_SIZE];
+
+static HCP_comm_t hcp_chain = {
+    .read = platform_spi_receive,
+    .write = platform_spi_send,
+    .data_buffer = hcp_data_buffer,
+    .txrx_buffer = hcp_txrx_buffer,
+    .data_size = 0,
+    .data_size_max = sizeof(hcp_data_buffer),
+    .phy_rx_timeout = 2000,
+};
+
 
 static void help(void)
 {
@@ -48,9 +62,9 @@ int main (int argc, char **argv)
     int timeout = 5;
     int index;
     int c;
-    uint8_t buffer[512];
-    uint16_t size[2] = { 256, 256 };
-    fpc_com_chain_t hcp_chain;
+    // uint8_t buffer[512];
+    // uint16_t size[2] = { 256, 256 };
+    //fpc_com_chain_t hcp_chain;
     interface_t iface = COM_INTERFACE;
 
     opterr = 0;
@@ -116,8 +130,15 @@ int main (int argc, char **argv)
             exit(1);
     }
 
-    init_com_chain(&hcp_chain, buffer, size, NULL, iface);
-    hcp_chain.channel = 1;
+    // init_com_chain(&hcp_chain, buffer, size, NULL, iface);
+    // hcp_chain.channel = 1;
+    if (iface == COM_INTERFACE) {
+        hcp_chain.read = platform_com_receive;
+        hcp_chain.write = platform_com_send;
+    } else {
+        hcp_chain.read = platform_spi_receive;
+        hcp_chain.write = platform_spi_send;
+    }
 
     while(1) {
         char cmd[100];
@@ -150,7 +171,7 @@ int main (int argc, char **argv)
                 res = bep_enroll_finger(&hcp_chain);
                 break;
             case 'b':
-                res = bep_identify_finger(&hcp_chain, &template_id, &match);
+                res = bep_identify_finger(&hcp_chain, 0, &template_id, &match);
                 if (res == FPC_BEP_RESULT_OK) {
                     if (match) {
                         printf("Match with template id: %d\n", template_id);
@@ -174,11 +195,15 @@ int main (int argc, char **argv)
                 template_id = atoi(cmd);
                 res = bep_delete_template(&hcp_chain, template_id);
                 break;
-            case 'f':
+            case 'f': {
                 printf("Timeout (ms): ");
                 fgets(cmd, sizeof(cmd), stdin);
+                uint32_t prev_timeout = hcp_chain.phy_rx_timeout;
+                hcp_chain.phy_rx_timeout = atoi(cmd);
                 res = bep_capture(&hcp_chain, atoi(cmd));
+                hcp_chain.phy_rx_timeout = prev_timeout;
                 break;
+            }
             case 'g': {
                 uint32_t size;
                 res = bep_image_get_size(&hcp_chain, &size);

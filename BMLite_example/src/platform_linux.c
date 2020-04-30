@@ -29,7 +29,6 @@
 #include <termios.h>
 #include <sys/time.h>
 
-#include "fpc_com_result.h"
 #include "platform.h"
 
 uint64_t platform_get_time(void)
