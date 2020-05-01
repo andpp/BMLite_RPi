@@ -168,7 +168,7 @@ static fpc_bep_result_t _tx_application(HCP_comm_t *hcp_comm)
     uint16_t data_left = hcp_comm->pkt_size;
     uint8_t *p = hcp_comm->pkt_buffer;
 
-    _HPC_pkt_t *pkt = (_HPC_pkt_t *)hcp_comm->txrx_buffer;
+    _HPC_pkt_t *phy_frm = (_HPC_pkt_t *)hcp_comm->txrx_buffer;
 
     // Application MTU size is PHY MTU - (Transport and Link overhead)
     uint16_t app_mtu = MTU - 6 - 8;
@@ -176,20 +176,21 @@ static fpc_bep_result_t _tx_application(HCP_comm_t *hcp_comm)
     // Calculate sequence length
     uint16_t seq_len = (data_left / app_mtu) + 1;
 
-    pkt->lnk_chn = 0;
-    pkt->t_seq_len = seq_len;
+    phy_frm->lnk_chn = 0;
+    phy_frm->t_seq_len = seq_len;
 
     for (seq_nr = 1; seq_nr <= seq_len && !status; seq_nr++) {
-        pkt->t_seq_nr = seq_nr;
+        phy_frm->t_seq_nr = seq_nr;
         if (data_left < app_mtu) {
-            pkt->t_size = data_left;
+            phy_frm->t_size = data_left;
             memcpy(hcp_comm->txrx_buffer + 10, p, data_left);
-            pkt->lnk_size = data_left + 6;
+            phy_frm->lnk_size = data_left + 6;
         } else {
-            pkt->t_size = app_mtu;
+            phy_frm->t_size = app_mtu;
             memcpy(hcp_comm->txrx_buffer + 10, p, app_mtu);
-            pkt->lnk_size = app_mtu + 6;
+            phy_frm->lnk_size = app_mtu + 6;
             p += app_mtu;
+            data_left -= app_mtu;
         }
 
         status = _tx_link(hcp_comm);
