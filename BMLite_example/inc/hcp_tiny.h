@@ -11,6 +11,11 @@
 #define FPC_BEP_ACK 0x7f01ff7f
 
 typedef struct {
+    uint32_t size;
+    uint8_t *data;
+} HCP_arg_t;
+
+typedef struct {
     /** Send data to BM-Lite */
     fpc_bep_result_t (*write) (uint16_t, const uint8_t *, uint32_t, void *);  
     /** Receive data from BM-Lite */
@@ -25,24 +30,12 @@ typedef struct {
     uint32_t pkt_size;
     /** Buffer of MTU size for transport layer */
     uint8_t *txrx_buffer;
+    /** Values of last argument pulled by bmlite_get_arg 
+        Values are valid only right after bmlite_get_arg() call */
+    HCP_arg_t arg;
+    /** Result of execution command on BM-Lite */
+    fpc_bep_result_t bep_result;
 } HCP_comm_t;
-
-/**
- * @brief Helper function for sending HCP commands
- *
- * @param chain HCP communication chain
- * @param command_id command to send
- * @param arg_key1 first key to add to the command
- * @param arg_data1 first argument data to add
- * @param arg_data1_length first data length of argument data
- * @param arg_key2 second key to add to the command
- * @param arg_data2 second argument data to add
- * @param arg_data2_length second data length of argument data
- * @return ::fpc_bep_result_t
- */
-fpc_bep_result_t send_command_args2(HCP_comm_t *chain, fpc_hcp_cmd_t command_id,
-        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
-        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length);
 
 /**
  * @brief Helper function for receiving HCP commands
@@ -56,8 +49,15 @@ fpc_bep_result_t send_command_args2(HCP_comm_t *chain, fpc_hcp_cmd_t command_id,
  * @param arg_data2_length second argument
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t receive_result_args2(HCP_comm_t *chain,
-        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
-        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length);
+fpc_bep_result_t bmlite_receive(HCP_comm_t *hcp_comm);
+fpc_bep_result_t bmlite_send(HCP_comm_t *hcp_comm);
+fpc_bep_result_t bmlite_tranceive(HCP_comm_t *hcp_comm);
+
+fpc_bep_result_t bmlite_init_cmd(HCP_comm_t *hcp_comm, uint16_t cmd, uint16_t arg);
+fpc_bep_result_t bmlite_add_arg(HCP_comm_t *hcp_comm, uint16_t arg, void *data, uint16_t size);
+fpc_bep_result_t bmlite_get_arg(HCP_comm_t *hcp_comm, uint16_t arg_type);
+fpc_bep_result_t bmlite_copy_arg(HCP_comm_t *hcp_comm, uint16_t arg_key, void *arg_data, uint16_t arg_data_length);
+
+
 
 #endif 

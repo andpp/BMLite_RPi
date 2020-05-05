@@ -109,4 +109,14 @@ uint64_t platform_get_time(void);
  */
 void platform_clear_screen(void);
 
+/**
+ * @brief Busy wait.
+ *
+ * @param[in] ms  Time to wait [ms].
+ * 0 => return immediately
+ * 1 => wait at least 1ms etc.
+ */
+void hal_timebase_busy_wait(uint32_t ms);
+
+
 #endif /* PLATFORM_H */

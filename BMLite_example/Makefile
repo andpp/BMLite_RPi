@@ -45,6 +45,9 @@ CFLAGS +=\
 	-MP\
 	-Wno-unused-result
 
+CFLAGS +=\
+	-DBMLITE_USE_CALLBACK
+
 # C source files
 C_SRCS = $(wildcard src/*.c)
 

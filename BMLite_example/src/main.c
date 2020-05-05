@@ -31,7 +31,7 @@
 #include <getopt.h>
 #include <string.h>
 
-#include "bep_host_if.h"
+#include "bmlite_if.h"
 #include "platform.h"
 
 #define DATA_BUFFER_SIZE 102400
@@ -48,12 +48,61 @@ static HCP_comm_t hcp_chain = {
     .phy_rx_timeout = 2000,
 };
 
-
 static void help(void)
 {
     fprintf(stderr, "BEP Host Communication Application\n");
     fprintf(stderr, "Syntax: bep_host_com [-s] [-p port] [-b baudrate] [-t timeout]\n");
 }
+
+void bmlite_on_error(bmlite_error_t error, int32_t value) 
+{ 
+    printf("Error: %d, return code %d\n", error, (int16_t)value); 
+}
+
+void bmlite_on_start_capture() 
+{
+    printf("Put finger on the sensor\n");
+}
+void bmlite_on_finish_capture() 
+{
+    printf("Remove finger from the sensor\n");
+}
+
+void bmlite_on_start_enroll() 
+{
+    printf("Start enrolling\n");
+}
+
+void bmlite_on_finish_enroll() 
+{
+    printf("Finish enrolling\n");
+}
+
+void bmlite_on_start_enrollcapture() {}
+void bmlite_on_finish_enrollcapture() {}
+
+void bmlite_on_identify_start() 
+{
+    printf("Start Identifying\n");
+}
+void bmlite_on_identify_finish() 
+{
+    printf("Finish Identifying\n");
+}
+
+void save_to_pgm(FILE *f, uint8_t *image, int res_x, int res_y)
+{
+        /* Print 8-bpp PGM ASCII header */
+        fprintf(f, "P2\n%d %d\n255\n", res_x, res_y);
+        for (int y = 0; y < res_y; y++) {
+                for (int x = 0; x < res_x; x++, image++)
+                        fprintf(f,"%d ", *image);
+                fprintf(f,"\n");
+        }
+
+        fprintf(f,"\x04"); /* End Of Transmission */
+}
+
 
 int main (int argc, char **argv)
 {
@@ -62,9 +111,6 @@ int main (int argc, char **argv)
     int timeout = 5;
     int index;
     int c;
-    // uint8_t buffer[512];
-    // uint16_t size[2] = { 256, 256 };
-    //fpc_com_chain_t hcp_chain;
     interface_t iface = COM_INTERFACE;
 
     opterr = 0;
@@ -130,8 +176,6 @@ int main (int argc, char **argv)
             exit(1);
     }
 
-    // init_com_chain(&hcp_chain, buffer, size, NULL, iface);
-    // hcp_chain.channel = 1;
     if (iface == COM_INTERFACE) {
         hcp_chain.read = platform_com_receive;
         hcp_chain.write = platform_com_send;
@@ -146,7 +190,7 @@ int main (int argc, char **argv)
         uint16_t template_id;
         bool match;
 
-        platform_clear_screen();
+        // platform_clear_screen();
         printf("BM-Lite Interface\n");
         if (iface == SPI_INTERFACE)
         	printf("SPI port: speed %d Hz\n", baudrate);
@@ -160,9 +204,11 @@ int main (int argc, char **argv)
         printf("c: Remove all templates\n");
         printf("d: Save template\n");
         printf("e: Remove template\n");
+        printf("l: List of templates\n");
         printf("f: Capture image\n");
-        printf("g: Image upload\n");
+        printf("g: Pull captured image\n");
         printf("h: Get version\n");
+        printf("r: SW Reset\n");
         printf("q: Exit program\n");
         printf("\nOption>> ");
         fgets(cmd, sizeof(cmd), stdin);
@@ -181,19 +227,30 @@ int main (int argc, char **argv)
                 }
                 break;
             case 'c':
-                res = bep_delete_template(&hcp_chain, REMOVE_ID_ALL_TEMPLATES);
+                res = bep_template_remove_all(&hcp_chain);
                 break;
             case 'd':
                 printf("Template id: ");
                 fgets(cmd, sizeof(cmd), stdin);
                 template_id = atoi(cmd);
-                res = bep_save_template(&hcp_chain, template_id);
+                res = bep_template_save(&hcp_chain, template_id);
+                // res = bep_template_remove_ram(&hcp_chain);
                 break;
             case 'e':
                 printf("Template id: ");
                 fgets(cmd, sizeof(cmd), stdin);
                 template_id = atoi(cmd);
-                res = bep_delete_template(&hcp_chain, template_id);
+                res = bep_template_remove(&hcp_chain, template_id);
+                break;
+            case 'l':
+                res = bep_template_get_ids(&hcp_chain);
+                if (hcp_chain.bep_result == FPC_BEP_RESULT_OK) {
+                    printf("Template list\n");
+                    for(int i=0; i < hcp_chain.arg.size/2; i++) {
+                        printf("%d ", *(uint16_t *)(hcp_chain.arg.data+i*2));
+                    }
+                    printf("\n");
+                }
                 break;
             case 'f': {
                 printf("Timeout (ms): ");
@@ -212,16 +269,63 @@ int main (int argc, char **argv)
                     if (buf) {
                       res = bep_image_get(&hcp_chain, buf, size);
                       if (res == FPC_BEP_RESULT_OK) {
-                          FILE *f = fopen("image.raw", "wb");
+                        //   if(size != hcp_chain.arg.size) {
+                              printf("Image size: %d. Received %d bytes\n", size, hcp_chain.arg.size);
+                        //   }
+                        FILE *f = fopen("image.raw", "wb");
+                        if (f) {
+                            fwrite(buf, 1, size, f);
+                            fclose(f);
+                            printf("Image saved as image.raw\n");
+                        }
+                        f = fopen("image.pgm", "wb");
+                        if(f) {
+                            save_to_pgm(f, buf, 160, 160);
+                            fclose(f);
+                            printf("Image saved as image.pgm\n");
+                        }
+                        free(buf);
+                      }
+                    }
+                }
+                break;
+            }
+            case 'T': {
+                uint32_t size;
+                uint8_t *buf = malloc(102400);
+                FILE *f = fopen("stemplate.raw", "rb");
+                if (f) {
+                    size = fread(buf, 1, 102400, f);
+                    fclose(f);
+                    if(size > 0) {
+                        printf("Pushing template size %d\n", size);
+                        res = bep_template_put(&hcp_chain, buf, size);
+                        if (res != FPC_BEP_RESULT_OK) {
+                            printf("Pushing template error: %d\n", res);
+                        }
+                    }
+                }
+                free(buf);
+
+                break;
+            }
+            case 't': {
+                    uint8_t *buf = malloc(102400);
+                    if (buf) {
+                      res = bep_template_get(&hcp_chain, buf, 102400);
+                      if (res == FPC_BEP_RESULT_OK) {
+                        //   if(size != hcp_chain.arg.size) {
+                              printf("Template size received %d bytes\n", hcp_chain.arg.size);
+                        //   }
+                          FILE *f = fopen("template.raw", "wb");
                           if (f) {
-                              fwrite(buf, 1, size, f);
+                              fwrite(buf, 1, hcp_chain.arg.size, f);
                               fclose(f);
                               printf("Image saved as image.raw\n");
                           }
-                      }
+                        }
                     }
-
-                }
+                    free(buf);
                 break;
             }
             case 'h': {
@@ -234,16 +338,26 @@ int main (int argc, char **argv)
                 }
                 break;
             }
+            case 'r':
+                bep_sw_reset(&hcp_chain);
+                break;
             case 'q':
                 return 0;
             default:
                 printf("\nUnknown command\n");
         }
-        if (res == FPC_BEP_RESULT_OK) {
+        if (hcp_chain.bep_result == FPC_BEP_RESULT_OK) {
             printf("\nCommand succeded\n");
         } else {
-            printf("\nCommand failed with error code %d\n", res);
+            printf("\nCommand failed with error code %d\n", hcp_chain.bep_result);
         }
+
+        if (res == FPC_BEP_RESULT_OK) {
+            printf("Transfer succeded\n");
+        } else {
+            printf("Transfer failed with error code %d\n", res);
+        }
+
         printf("Press any key to continue...");
         fgets(cmd, sizeof(cmd), stdin);
     }

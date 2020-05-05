@@ -1,25 +1,26 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include "bep_host_if.h"
 #include "platform.h"
 #include "fpc_crc.h"
 #include "fpc_hcp_common.h"
 #include "hcp_tiny.h"
 
-#define DEBUG(...) printf(__VA_ARGS__)
+#include "bmlite_if_callbacks.h"
+
+#define DEBUG
+
+#ifdef DEBUG
+#include <stdio.h>
+#include <stdlib.h>
+#define LOG_DEBUG(...) printf(__VA_ARGS__)
+#else
+#define LOG_DEBUG(...)
+#endif
 
 static uint32_t fpc_com_ack = FPC_BEP_ACK;
 
-static fpc_bep_result_t _rx_application(HCP_comm_t *hcp_comm);
 static fpc_bep_result_t _rx_link(HCP_comm_t *hcp_comm);
-static fpc_bep_result_t _tx_application(HCP_comm_t *hcp_comm);
 static fpc_bep_result_t _tx_link(HCP_comm_t *hcp_comm);
-
-static fpc_bep_result_t hcp_init_cmd(HCP_comm_t *hcp_comm, uint16_t cmd);
-static fpc_bep_result_t hcp_add_arg(HCP_comm_t *hcp_comm, uint16_t arg, uint8_t *data, uint16_t size);
-static fpc_bep_result_t hcp_get_arg(HCP_comm_t *hcp_comm, uint16_t arg_type, uint16_t *size, uint8_t **payload);
 
 typedef struct {
     uint16_t cmd;
@@ -42,18 +43,30 @@ typedef struct {
    _HCP_cmd_t t_pld;
 } _HPC_pkt_t;
 
-fpc_bep_result_t hcp_init_cmd(HCP_comm_t *hcp_comm, uint16_t cmd)
+fpc_bep_result_t bmlite_init_cmd(HCP_comm_t *hcp_comm, uint16_t cmd, uint16_t arg_key)
 {
+    fpc_bep_result_t bep_result;
+
     _HCP_cmd_t *out = (_HCP_cmd_t *)hcp_comm->pkt_buffer;
     out->cmd = cmd;
     out->args_nr = 0;
     hcp_comm->pkt_size = 4;
+
+    if(arg_key != ARG_NONE) {
+        bep_result = bmlite_add_arg(hcp_comm, arg_key, NULL, 0);
+        if(bep_result) {
+            bmlite_on_error(BMLITE_ERROR_SEND_CMD, bep_result);
+            return bep_result;
+        }
+    }    
+
     return FPC_BEP_RESULT_OK;
 }
 
-fpc_bep_result_t hcp_add_arg(HCP_comm_t *hcp_comm, uint16_t arg, uint8_t *data, uint16_t size)
+fpc_bep_result_t bmlite_add_arg(HCP_comm_t *hcp_comm, uint16_t arg, void *data, uint16_t size)
 {
     if(hcp_comm->pkt_size + 4 + size > hcp_comm->pkt_size_max) {
+        bmlite_on_error(BMLITE_ERROR_SEND_CMD, FPC_BEP_RESULT_NO_MEMORY);
         return FPC_BEP_RESULT_NO_MEMORY;
     }
 
@@ -68,7 +81,7 @@ fpc_bep_result_t hcp_add_arg(HCP_comm_t *hcp_comm, uint16_t arg, uint8_t *data, 
     return FPC_BEP_RESULT_OK;
 }
 
-fpc_bep_result_t hcp_get_arg(HCP_comm_t *hcp_comm, uint16_t arg_type, uint16_t *size, uint8_t **payload)
+fpc_bep_result_t bmlite_get_arg(HCP_comm_t *hcp_comm, uint16_t arg_type)
 {
     uint16_t i = 0;
     uint8_t *buffer = hcp_comm->pkt_buffer;
@@ -77,51 +90,99 @@ fpc_bep_result_t hcp_get_arg(HCP_comm_t *hcp_comm, uint16_t arg_type, uint16_t *
     while (i < args_nr && (pdata - buffer) <= hcp_comm->pkt_size) {
         _CMD_arg_t *parg = (_CMD_arg_t *)pdata;
         if(parg->arg == arg_type) {
-            *size = parg->size;
-            *payload = parg->pld;
+            hcp_comm->arg.size = parg->size;
+            hcp_comm->arg.data = parg->pld;
             return FPC_BEP_RESULT_OK;
         } else {
             i++;
             pdata += 4 + parg->size;
         }
     }
+
+    // Ignore missing ARG_RESULT because some command return result other way
+    // if (arg_type != ARG_RESULT) {
+        bmlite_on_error(BMLITE_ERROR_GET_ARG, FPC_BEP_RESULT_INVALID_ARGUMENT);
+    // }
     return FPC_BEP_RESULT_INVALID_ARGUMENT;
 }
 
-static fpc_bep_result_t _rx_application(HCP_comm_t *hcp_comm)
+fpc_bep_result_t bmlite_copy_arg(HCP_comm_t *hcp_comm, uint16_t arg_key, void *arg_data, uint16_t arg_data_length)
 {
-    fpc_bep_result_t status = FPC_BEP_RESULT_OK;
+    fpc_bep_result_t bep_result;
+    bep_result = bmlite_get_arg(hcp_comm, arg_key);
+    if(bep_result == FPC_BEP_RESULT_OK) {
+        if(arg_data == NULL) {
+            bmlite_on_error(BMLITE_ERROR_GET_ARG, FPC_BEP_RESULT_NO_MEMORY);
+            return FPC_BEP_RESULT_NO_MEMORY;
+        }
+        memcpy(arg_data, hcp_comm->arg.data, HCP_MIN(arg_data_length, hcp_comm->arg.size));
+    } else {
+        bmlite_on_error(BMLITE_ERROR_GET_ARG, FPC_BEP_RESULT_INVALID_ARGUMENT);
+        return FPC_BEP_RESULT_INVALID_ARGUMENT;
+    }
+
+    return bep_result;
+}
+
+fpc_bep_result_t bmlite_tranceive(HCP_comm_t *hcp_comm)
+{
+    fpc_bep_result_t bep_result;
+
+    bep_result = bmlite_send(hcp_comm);
+    if (bep_result == FPC_BEP_RESULT_OK) {
+        bep_result = bmlite_receive(hcp_comm);
+
+        if (bmlite_get_arg(hcp_comm, ARG_RESULT) == FPC_BEP_RESULT_OK) {
+            hcp_comm->bep_result = *(int8_t*)hcp_comm->arg.data;
+        } else {
+            hcp_comm->bep_result = FPC_BEP_RESULT_OK;
+        }
+    }
+
+    return bep_result;
+}
+
+fpc_bep_result_t bmlite_receive(HCP_comm_t *hcp_comm)
+{
+    fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
     fpc_bep_result_t com_result = FPC_BEP_RESULT_OK;
     uint16_t seq_nr = 0;
     uint16_t seq_len = 1;
-    uint16_t len;
     uint8_t *p = hcp_comm->pkt_buffer;
     _HPC_pkt_t *pkt = (_HPC_pkt_t *)hcp_comm->txrx_buffer;
     uint16_t buf_len = 0;
 
     while(seq_nr < seq_len) {
-        status = _rx_link(hcp_comm);
+        bep_result = _rx_link(hcp_comm);
 
-        if (!status) {
-            len = pkt->lnk_size - 4;
+        if (!bep_result) {
             seq_nr = pkt->t_seq_nr;
             seq_len = pkt->t_seq_len;
-            if(buf_len + len < hcp_comm->pkt_size_max) {
-                memcpy(p, &pkt->t_pld, len);
-                p += len;
-                buf_len += len;
+            if(pkt->t_size != pkt->lnk_size - 6) {
+                com_result = FPC_BEP_RESULT_IO_ERROR;
+                continue;
+            }
+            if(buf_len + pkt->t_size < hcp_comm->pkt_size_max) {
+                memcpy(p, &pkt->t_pld, pkt->t_size);
+                p += pkt->t_size;
+                buf_len += pkt->t_size;
             } else {
                 com_result = FPC_BEP_RESULT_NO_MEMORY;
             }
+#ifdef DEBUG            
             if (seq_len > 1)
-                DEBUG("S: Seqence %d of %d\n", seq_nr, seq_len);
+                LOG_DEBUG("Received data chunk %d of %d\n", seq_nr, seq_len);
+#endif
         } else {
-            DEBUG("S: Receiving chunk error %d\n", status);
-            return status;
+            bmlite_on_error(BMLITE_ERROR_SEND_CMD, bep_result);
+            return bep_result;
         }
     }
 
     hcp_comm->pkt_size = buf_len;
+    if(com_result != FPC_BEP_RESULT_OK) {
+        bmlite_on_error(BMLITE_ERROR_SEND_CMD, com_result);
+    }
     return com_result;
 }
 
@@ -133,7 +194,7 @@ static fpc_bep_result_t _rx_link(HCP_comm_t *hcp_comm)
     uint16_t size;
 
     if (result) {
-        //DEBUG("Timed out waiting for response.\n");
+        LOG_DEBUG("Timed out waiting for response.\n");
         return result;
     }
 
@@ -141,7 +202,8 @@ static fpc_bep_result_t _rx_link(HCP_comm_t *hcp_comm)
 
     // Check if size plus header and crc is larger than max package size.
     if (MTU < size + 8) {
-        DEBUG("S: Invalid size %d, larger than MTU %d.\n", size, MTU);
+        // LOG_DEBUG("S: Invalid size %d, larger than MTU %d.\n", size, MTU);
+        bmlite_on_error(BMLITE_ERROR_SEND_CMD, FPC_BEP_RESULT_IO_ERROR);
         return FPC_BEP_RESULT_IO_ERROR;
     }
         
@@ -151,20 +213,21 @@ static fpc_bep_result_t _rx_link(HCP_comm_t *hcp_comm)
     uint32_t crc_calc = fpc_crc(0, hcp_comm->txrx_buffer+4, size);
 
     if (crc_calc != crc) {
-        DEBUG("S: CRC mismatch. Calculated %08X, received %08X\n", crc_calc, crc);
+        LOG_DEBUG("CRC mismatch. Calculated %08X, received %08X\n", crc_calc, crc);
+        bmlite_on_error(BMLITE_ERROR_SEND_CMD, FPC_BEP_RESULT_IO_ERROR);
         return FPC_BEP_RESULT_IO_ERROR;
     }
 
     // Send Ack
     hcp_comm->write(4, (uint8_t *)&fpc_com_ack, 0, NULL);
 
-    return 0;
+    return FPC_BEP_RESULT_OK;
 }
 
-static fpc_bep_result_t _tx_application(HCP_comm_t *hcp_comm)
+fpc_bep_result_t bmlite_send(HCP_comm_t *hcp_comm)
 {
     uint16_t seq_nr = 1;
-    fpc_bep_result_t status = FPC_BEP_RESULT_OK;
+    fpc_bep_result_t bep_result = FPC_BEP_RESULT_OK;
     uint16_t data_left = hcp_comm->pkt_size;
     uint8_t *p = hcp_comm->pkt_buffer;
 
@@ -179,48 +242,46 @@ static fpc_bep_result_t _tx_application(HCP_comm_t *hcp_comm)
     phy_frm->lnk_chn = 0;
     phy_frm->t_seq_len = seq_len;
 
-    for (seq_nr = 1; seq_nr <= seq_len && !status; seq_nr++) {
+    for (seq_nr = 1; seq_nr <= seq_len && !bep_result; seq_nr++) {
         phy_frm->t_seq_nr = seq_nr;
         if (data_left < app_mtu) {
             phy_frm->t_size = data_left;
-            memcpy(hcp_comm->txrx_buffer + 10, p, data_left);
-            phy_frm->lnk_size = data_left + 6;
         } else {
             phy_frm->t_size = app_mtu;
-            memcpy(hcp_comm->txrx_buffer + 10, p, app_mtu);
-            phy_frm->lnk_size = app_mtu + 6;
-            p += app_mtu;
-            data_left -= app_mtu;
         }
+        memcpy(&phy_frm->t_pld, p, phy_frm->t_size);
+        phy_frm->lnk_size = phy_frm->t_size + 6;
+        p += phy_frm->t_size;
+        data_left -= phy_frm->t_size;
 
-        status = _tx_link(hcp_comm);
+        bep_result = _tx_link(hcp_comm);
     }
 
-    return status;
+    if(bep_result) {
+        bmlite_on_error(BMLITE_ERROR_SEND_CMD, bep_result);
+    }
+    return bep_result;
 }
 
 fpc_bep_result_t _tx_link(HCP_comm_t *hcp_comm)
 {
-    fpc_bep_result_t result;
+    fpc_bep_result_t bep_result;
 
     _HPC_pkt_t *pkt = (_HPC_pkt_t *)hcp_comm->txrx_buffer;
 
     uint32_t crc_calc = fpc_crc(0, &pkt->t_size, pkt->lnk_size);
-    *(uint32_t *)(hcp_comm->txrx_buffer + 4 + pkt->lnk_size) = crc_calc;
+    *(uint32_t *)(hcp_comm->txrx_buffer + pkt->lnk_size + 4) = crc_calc;
     uint16_t size = pkt->lnk_size + 8;
 
-    result = hcp_comm->write(size, hcp_comm->txrx_buffer, 0, NULL);
-    if(result) {
-        DEBUG("S: Sending error\n");
-        return result;
-    }
+    bep_result = hcp_comm->write(size, hcp_comm->txrx_buffer, 0, NULL);
 
     // Wait for ACK
     uint32_t ack;
-    result = hcp_comm->read(4, (uint8_t *)&ack, 100, NULL);
-    if (result == FPC_BEP_RESULT_TIMEOUT) {
-        DEBUG("S: ASK timeout\n");
-        return FPC_BEP_RESULT_OK;
+    bep_result = hcp_comm->read(4, (uint8_t *)&ack, 500, NULL);
+    if (bep_result == FPC_BEP_RESULT_TIMEOUT) {
+        LOG_DEBUG("ASK read timeout\n");
+        bmlite_on_error(BMLITE_ERROR_SEND_CMD, FPC_BEP_RESULT_TIMEOUT);
+        return FPC_BEP_RESULT_IO_ERROR;
     }
 
     if(ack != fpc_com_ack) {
@@ -230,76 +291,3 @@ fpc_bep_result_t _tx_link(HCP_comm_t *hcp_comm)
     return FPC_BEP_RESULT_OK;
 }
 
-fpc_bep_result_t send_command_args2(HCP_comm_t *chain, fpc_hcp_cmd_t command_id,
-        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
-        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length)
-{
-    fpc_bep_result_t bep_result;
-    hcp_init_cmd(chain, command_id);
-    
-    if(arg_key1 != ARG_NONE) {
-        bep_result = hcp_add_arg(chain, arg_key1, arg_data1, arg_data1_length);
-        if(bep_result) {
-            return bep_result;
-        }
-    }
-
-    if(arg_key2 != ARG_NONE) {
-        bep_result = hcp_add_arg(chain, arg_key2, arg_data2, arg_data2_length);
-        if(bep_result) {
-            return bep_result;
-        }
-    }
-
-    bep_result = _tx_application(chain);
-
-    if (bep_result != FPC_BEP_RESULT_OK) {
-        DEBUG("%s:%u ERROR %d\n", __func__, __LINE__, bep_result);
-    }
-
-    return bep_result;
-}
-
-fpc_bep_result_t receive_result_args2(HCP_comm_t *chain,
-        fpc_hcp_arg_t arg_key1, void *arg_data1, uint16_t arg_data1_length,
-        fpc_hcp_arg_t arg_key2, void *arg_data2, uint16_t arg_data2_length)
-{
-    fpc_bep_result_t bep_result;
-    uint16_t size;
-    uint8_t *pld;
-
-        
-    bep_result = _rx_application(chain);
-    if(bep_result) {
-        DEBUG("S: Receive err: %d\n", bep_result);
-        return bep_result;
-    }
-
-    if (arg_key1 != ARG_NONE) {
-        bep_result = hcp_get_arg(chain, arg_key1, &size, &pld);
-        if(bep_result == FPC_BEP_RESULT_OK) {
-            if(arg_data1 == NULL) {
-                return FPC_BEP_RESULT_NO_MEMORY;
-            }
-            memcpy(arg_data1, pld, arg_data1_length);
-        } else {
-            DEBUG("Arg1 0x%04X not found\n", arg_key1);
-            return FPC_BEP_RESULT_INVALID_ARGUMENT;
-        }
-    }
-
-    if (arg_key2 != ARG_NONE) {
-        bep_result = hcp_get_arg(chain, arg_key2, &size, &pld);
-        if(bep_result == FPC_BEP_RESULT_OK) {
-            if(arg_data2 == NULL) {
-                return FPC_BEP_RESULT_NO_MEMORY;
-            }
-            memcpy(arg_data2, pld, arg_data2_length);
-        } else {
-            DEBUG("Arg2 0x%04X not found\n", arg_key2);
-            //return FPC_BEP_RESULT_INVALID_ARGUMENT;
-        }
-    }
-
-    return FPC_BEP_RESULT_OK;
-}

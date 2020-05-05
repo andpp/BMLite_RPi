@@ -28,6 +28,7 @@
 #include <string.h>
 #include <termios.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include "platform.h"
 
@@ -46,4 +47,9 @@ uint64_t platform_get_time(void)
 void platform_clear_screen(void)
 {
     system("clear");
+}
+
+void hal_timebase_busy_wait(uint32_t ms)
+{
+    usleep(ms * 1000);
 }
