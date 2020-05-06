@@ -84,7 +84,7 @@ void fpc_sensor_spi_reset(bool state)
     }
 }
 
-bool fpc_sensor_spi_read_irq(void)
+bool hal_bmlite_get_status(void)
 {
     return digitalRead(BMLITE_IRQ_PIN);
 }
@@ -192,8 +192,8 @@ fpc_bep_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t tim
 {
 	volatile uint64_t start_time = platform_get_time();
 	volatile uint64_t curr_time = start_time;
-    // Wait for BM_Lite Ready for timeout or indefinitily if timeout is 0
-    while (!fpc_sensor_spi_read_irq() &&
+    // Wait for BM_Lite Ready for timeout or indefinitely if timeout is 0
+    while (!hal_bmlite_get_status() &&
     		(!timeout || (curr_time = platform_get_time()) - start_time < timeout)) {
         //usleep(1);
     }
