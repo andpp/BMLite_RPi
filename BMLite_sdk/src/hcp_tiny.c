@@ -7,8 +7,6 @@
 
 #include "bmlite_if_callbacks.h"
 
-#define DEBUG
-
 #ifdef DEBUG
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,7 +85,7 @@ fpc_bep_result_t bmlite_get_arg(HCP_comm_t *hcp_comm, uint16_t arg_type)
     uint8_t *buffer = hcp_comm->pkt_buffer;
     uint16_t args_nr = ((_HCP_cmd_t *)(buffer))->args_nr;
     uint8_t *pdata = (uint8_t *)&((_HCP_cmd_t *)(buffer))->args;
-    while (i < args_nr && (pdata - buffer) <= hcp_comm->pkt_size) {
+    while (i < args_nr && (uint32_t)(pdata - buffer) <= hcp_comm->pkt_size) {
         _CMD_arg_t *parg = (_CMD_arg_t *)pdata;
         if(parg->arg == arg_type) {
             hcp_comm->arg.size = parg->size;

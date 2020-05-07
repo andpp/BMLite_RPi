@@ -39,7 +39,7 @@
 
 #include "wiringPi.h"
 #include "wiringPiSPI.h"
-#include "raspberry_pi_hal.h"
+#include "platform_rpi.h"
 
 #define SPI_BUF_MIN_SIZE 40000
 // This path is used to determine the SPI buffer size.
@@ -52,7 +52,7 @@ uint32_t speed_hz_int;
 
 void fpc_sensor_spi_reset(bool state);
 
-void raspberryPi_init()
+static void raspberryPi_init()
 {
     /* Start wiringPi functions. */
     wiringPiSetup();
@@ -66,15 +66,7 @@ void raspberryPi_init()
 
 }
 
-void platform_spi_sensor_reset(void)
-{
-    fpc_sensor_spi_reset(true);
-    usleep(100);
-    fpc_sensor_spi_reset(false);
-    usleep(10);
-}
-
-void fpc_sensor_spi_reset(bool state)
+void hal_bmlite_reset(bool state)
 {
     /* The reset pin is controlled by WiringPis digitalWrite function*/
     if (state) {
@@ -90,7 +82,7 @@ bool hal_bmlite_get_status(void)
 }
 
 
-bool platform_spi_init(uint32_t speed_hz)
+bool rpi_spi_init(uint32_t speed_hz)
 {
     raspberryPi_init();
 
@@ -143,7 +135,7 @@ bool platform_spi_init(uint32_t speed_hz)
     return true;
 }
 
-static fpc_bep_result_t platform_spi_write_read(const uint8_t *write, uint8_t *read, size_t size,
+fpc_bep_result_t hal_bmlite_spi_write_read(const uint8_t *write, uint8_t *read, size_t size,
     bool leave_cs_asserted)
 {
     /*
@@ -179,28 +171,28 @@ static fpc_bep_result_t platform_spi_write_read(const uint8_t *write, uint8_t *r
 
 }
 
-fpc_bep_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t timeout,
-        void *session)
-{
-    uint8_t buff[size];
+// fpc_bep_result_t platform_spi_send(uint16_t size, const uint8_t *data, uint32_t timeout,
+//         void *session)
+// {
+//     uint8_t buff[size];
 
-    return platform_spi_write_read(data, buff, size, false);
-}
+//     return platform_spi_write_read(data, buff, size, false);
+// }
 
-fpc_bep_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t timeout,
-        void *session)
-{
-	volatile uint64_t start_time = platform_get_time();
-	volatile uint64_t curr_time = start_time;
-    // Wait for BM_Lite Ready for timeout or indefinitely if timeout is 0
-    while (!hal_bmlite_get_status() &&
-    		(!timeout || (curr_time = platform_get_time()) - start_time < timeout)) {
-        //usleep(1);
-    }
-    if(timeout && curr_time - start_time >= timeout) {
-        return FPC_BEP_RESULT_TIMEOUT;
-    }
+// fpc_bep_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t timeout,
+//         void *session)
+// {
+// 	volatile uint64_t start_time = platform_get_time();
+// 	volatile uint64_t curr_time = start_time;
+//     // Wait for BM_Lite Ready for timeout or indefinitely if timeout is 0
+//     while (!hal_bmlite_get_status() &&
+//     		(!timeout || (curr_time = platform_get_time()) - start_time < timeout)) {
+//         //usleep(1);
+//     }
+//     if(timeout && curr_time - start_time >= timeout) {
+//         return FPC_BEP_RESULT_TIMEOUT;
+//     }
 
-    uint8_t buff[size];
-    return platform_spi_write_read(buff, data, size, false);
-}
+//     uint8_t buff[size];
+//     return platform_spi_write_read(buff, data, size, false);
+// }

@@ -1,6 +1,15 @@
 # Binary sources
-VPATH += $(DEPTH)../HAL_Driver
 
-C_INC += -I$(DEPTH)../HAL_Driver/inc
+NHAL = $(DEPTH)../HAL_Driver
 
-LDFLAGS += -lwiringPi -L$(DEPTH)../HAL_Driver/lib/ 
+VPATH += $(NHAL)
+
+C_INC += -I$(NHAL)/inc
+
+LDFLAGS += -lwiringPi -L$(NHAL)/lib/ 
+
+# Source Folders
+VPATH += $(NHAL)/src/
+
+# C Sources
+C_SRCS += $(notdir $(wildcard $(NHAL)/src/*.c))

@@ -27,6 +27,7 @@ OUT := out
 DEPTH := 
 HCP_PATH := ../hcp
 RPIHAL_PATH := ../HAL_Driver
+BMLITE_PATH := ../BMLite_sdk
 
 # Main target
 TARGET := $(OUT)/$(PRODUCT)
@@ -46,7 +47,9 @@ CFLAGS +=\
 	-Wno-unused-result
 
 CFLAGS +=\
-	-DBMLITE_USE_CALLBACK
+	-DBMLITE_USE_CALLBACK \
+	-DDEBUG
+
 
 # C source files
 C_SRCS = $(wildcard src/*.c)
@@ -56,6 +59,8 @@ PATH_INC += inc
 
 C_INC = $(addprefix -I,$(PATH_INC))
 
+# Include BM-Lite SDK
+include $(BMLITE_PATH)/bmlite.mk
 # Include HAL driver
 include $(RPIHAL_PATH)/raspberry.mk
 

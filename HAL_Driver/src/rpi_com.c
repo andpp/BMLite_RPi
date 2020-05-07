@@ -29,7 +29,7 @@
 #include <termios.h>
 #include <sys/time.h>
 
-#include "platform.h"
+#include "platform_rpi.h"
 
 static int fd = -1;
 
@@ -63,7 +63,7 @@ static int set_interface_attribs(int fd, int speed, int timeout)
     return 0;
 }
 
-bool platform_com_init(char *port, int baudrate, int timeout)
+bool rpi_com_init(char *port, int baudrate, int timeout)
 {
 
     int baud;
@@ -84,7 +84,7 @@ bool platform_com_init(char *port, int baudrate, int timeout)
     return true;
 }
 
-fpc_bep_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
+fpc_bep_result_t rpi_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
         void *session)
 {
     fpc_bep_result_t res = FPC_BEP_RESULT_OK;
@@ -104,7 +104,7 @@ fpc_bep_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t 
     return res;
 }
 
-fpc_bep_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
+fpc_bep_result_t rpi_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
         void *session)
 {
     fpc_bep_result_t res = FPC_BEP_RESULT_OK;

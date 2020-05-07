@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef PLATFORM_H
-#define PLATFORM_H
+#ifndef PLATFORM_RPI_H
+#define PLATFORM_RPI_H
 
 /**
  * @file    platform.h
@@ -26,12 +26,27 @@
 #include <stdbool.h>
 
 #include "fpc_bep_types.h"
+#include "hcp_tiny.h"
 
 typedef enum {
    COM_INTERFACE = 0,
    SPI_INTERFACE
 } interface_t;
 
+typedef struct {
+   interface_t iface;
+   char *port;
+   uint32_t baudrate;
+   uint32_t timeout;
+   HCP_comm_t *hcp_comm;
+} rpi_initparams_t;
+
+/*
+* Pin definitions for RPI 3
+*/
+#define BMLITE_RESET_PIN    0
+#define BMLITE_IRQ_PIN      22
+#define SPI_CHANNEL         0
 
 /**
  * @brief Initializes COM Physical layer.
@@ -40,7 +55,7 @@ typedef enum {
  * @param[in]       baudrate    Baudrate.
  * @param[in]       timeout     Timeout in ms. Use 0 for infinity.
  */
-bool platform_com_init(char *port, int baudrate, int timeout);
+bool rpi_com_init(char *port, int baudrate, int timeout);
 
 /**
  * @brief Sends data over communication port in blocking mode.
@@ -51,7 +66,7 @@ bool platform_com_init(char *port, int baudrate, int timeout);
  *
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
+fpc_bep_result_t rpi_com_send(uint16_t size, const uint8_t *data, uint32_t timeout,
         void *session);
 
 /**
@@ -63,7 +78,7 @@ fpc_bep_result_t platform_com_send(uint16_t size, const uint8_t *data, uint32_t 
  *
  * @return ::fpc_bep_result_t
  */
-fpc_bep_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
+fpc_bep_result_t rpi_com_receive(uint16_t size, uint8_t *data, uint32_t timeout,
         void *session);
 
 /**
@@ -71,7 +86,7 @@ fpc_bep_result_t platform_com_receive(uint16_t size, uint8_t *data, uint32_t tim
  *
  * @param[in]       speed_hz    Baudrate.
  */
-bool platform_spi_init(uint32_t speed_hz);
+bool rpi_spi_init(uint32_t speed_hz);
 
 /**
  * @brief Sends data over communication port in blocking mode.
@@ -102,12 +117,12 @@ fpc_bep_result_t platform_spi_receive(uint16_t size, uint8_t *data, uint32_t tim
  *
  * @return time in us.
  */
-uint64_t platform_get_time(void);
+// uint64_t platform_get_time(void);
 
 /**
  * @brief Clear console screen
  */
-void platform_clear_screen(void);
+void rpi_clear_screen(void);
 
 /**
  * @brief Busy wait.
@@ -119,4 +134,4 @@ void platform_clear_screen(void);
 void hal_timebase_busy_wait(uint32_t ms);
 
 
-#endif /* PLATFORM_H */
+#endif /* PLATFORM_RPI_H */
