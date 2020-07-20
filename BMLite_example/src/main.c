@@ -12,10 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-
-/*
- * 04/14/2020: Added SPI interfcae support
+ *
+ * Modified by Andrey Perminov <andrey.ppp@gmail.com> 
+ * for FPC BM-Lite applications 
+ *
+ * 04/14/2020: Added SPI interface support
  */
 
 
