@@ -190,6 +190,8 @@ int main (int argc, char **argv)
         printf("d: Save template\n");
         printf("e: Remove template\n");
         printf("l: List of templates\n");
+        printf("t: Save template to file\n");
+        printf("T: Push template from file\n");
         printf("f: Capture image\n");
         printf("g: Pull captured image\n");
         printf("h: Get version\n");
@@ -277,8 +279,10 @@ int main (int argc, char **argv)
             }
             case 'T': {
                 uint32_t size;
+                printf("Read template from file: ");
+                fscanf(stdin, "%s", cmd);
                 uint8_t *buf = malloc(102400);
-                FILE *f = fopen("stemplate.raw", "rb");
+                FILE *f = fopen(cmd, "rb");
                 if (f) {
                     size = fread(buf, 1, 102400, f);
                     fclose(f);
@@ -289,6 +293,8 @@ int main (int argc, char **argv)
                             printf("Pushing template error: %d\n", res);
                         }
                     }
+                } else {
+                    printf("Can't open %s\n", cmd);
                 }
                 free(buf);
 
@@ -296,17 +302,19 @@ int main (int argc, char **argv)
             }
             case 't': {
                     uint8_t *buf = malloc(102400);
+                    printf("Save template to file: ");
+                    fscanf(stdin, "%s", cmd);
                     if (buf) {
                       res = bep_template_get(&hcp_chain, buf, 102400);
                       if (res == FPC_BEP_RESULT_OK) {
                         //   if(size != hcp_chain.arg.size) {
                               printf("Template size received %d bytes\n", hcp_chain.arg.size);
                         //   }
-                          FILE *f = fopen("template.raw", "wb");
+                          FILE *f = fopen(cmd, "wb");
                           if (f) {
                               fwrite(buf, 1, hcp_chain.arg.size, f);
                               fclose(f);
-                              printf("Image saved as image.raw\n");
+                              printf("Image saved as %s\n", cmd);
                           }
                         }
                     }
