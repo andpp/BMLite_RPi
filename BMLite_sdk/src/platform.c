@@ -22,6 +22,12 @@
  * @file    platform.c
  * @brief   Platform specific functions
  */
+#ifdef DEBUG_COMM
+#include <stdio.h>
+#define LOG_DEBUG(...) printf(__VA_ARGS__)
+#else
+#define LOG_DEBUG(...)
+#endif
 
 #include "fpc_bep_types.h"
 #include "platform.h"
@@ -50,6 +56,12 @@ fpc_bep_result_t platform_bmlite_send(uint16_t size, const uint8_t *data, uint32
         void *session)
 {
     uint8_t buff[size];
+#ifdef DEBUG_COMM
+    LOG_DEBUG("-> ");
+    for (int i=0; i<size; i++)
+       LOG_DEBUG("%02X ", data[i]);
+    LOG_DEBUG("\n");
+#endif
 
     return hal_bmlite_spi_write_read((uint8_t *)data, buff, size, false);
 }
@@ -71,7 +83,16 @@ fpc_bep_result_t platform_bmlite_receive(uint16_t size, uint8_t *data, uint32_t 
     }
 
     uint8_t buff[size];
-    return hal_bmlite_spi_write_read(buff, data, size, false);
+    fpc_bep_result_t res = hal_bmlite_spi_write_read(buff, data, size, false);
+
+#ifdef DEBUG_COMM
+    LOG_DEBUG("<- ");
+    for (int i=0; i<size; i++)
+       LOG_DEBUG("%02X ", data[i]);
+    LOG_DEBUG("\n");
+#endif
+
+    return res;
 }
 
 __attribute__((weak)) uint32_t hal_check_button_pressed()
