@@ -1,3 +1,5 @@
+## This project is obsoleted. All new development moved here: https://github.com/andpp/BM-Lite
+
 # BM-Lite Raspberry PI example
 
 BM-Lite example for Raspberry Pi 3.
